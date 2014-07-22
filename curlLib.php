@@ -2,7 +2,7 @@
     /**
      * PHP Curl Wrapper
      *
-     * @author Randen Neil Rosete
+     * @author DWAPPU
      * @copyright 2014 DWAPPU
      * @version 1.0
      */
