@@ -89,6 +89,22 @@
             }
         }
         
+        /**
+         * Sets the CURLOPT_CONNECTTIMEOUT
+         * @param integer $connect_timeout - in seconds
+         */
+        public function setConnectTimeout($connect_timeout=0){
+            curl_setopt($this->CH, CURLOPT_CONNECTTIMEOUT, $connection_timeout);
+        }
+        
+        /**
+         * Sets the CURLOPT_TIMEOUT
+         * @param integer $timeout - in seconds
+         */
+        public function setTimeout($timeout=0){
+            curl_setopt($this->CH, CURLOPT_TIMEOUT, $timeout);
+        }
+        
         private function getError($result){
             $curlError = array();
             
