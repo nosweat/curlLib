@@ -4,7 +4,7 @@
      *
      * @author DWAPPU
      * @copyright 2014 DWAPPU
-     * @version 1.0
+     * @version 1.1 
      */
     class curlLib{
         private $CH;
@@ -15,7 +15,7 @@
         
         /**
          * Sets the Curl Objects. HEAD is not implement since PHP get_header() can be used
-         * @param string $method GET, POST, PUT, DELETE
+         * @param string $method GET, POST, PUT, DELETE, HEAD
          * @param string $url
          * @param string/array $data String for json payload and Array for normal Form Post
          * @param array $headers
@@ -25,7 +25,7 @@
         public function __construct($method,$url,$data,$headers=array(),$user_agent='',$redirection=FALSE){
             $this->CH = curl_init();
             
-            if($method == 'GET' && !empty($data))
+            if(($method == 'GET' || $method == 'HEAD') && !empty($data))
                 $url .= '?'.http_build_query($data);
             
             curl_setopt($this->CH, CURLOPT_URL, $url);
@@ -55,6 +55,10 @@
                     curl_setopt($this->CH, CURLOPT_POST, 1);
                 else if($this->METHOD == 'PUT')
                     curl_setopt($this->CH, CURLOPT_PUT, 1);
+                else if($this->METHOD == 'HEAD'){
+                	curl_setopt($this->CH, CURLOPT_NOBODY, 1);
+                	curl_setopt($this->CH, CURLOPT_HEADER, 1);
+                }
             } else {
                 curl_setopt($this->CH, CURLOPT_CUSTOMREQUEST, $this->METHOD);
             }
@@ -89,21 +93,21 @@
             }
         }
         
-        /**
-         * Sets the CURLOPT_CONNECTTIMEOUT
-         * @param integer $connect_timeout - in seconds
-         */
-        public function setConnectTimeout($connect_timeout=0){
-            curl_setopt($this->CH, CURLOPT_CONNECTTIMEOUT, $connection_timeout);
-        }
-        
-        /**
-         * Sets the CURLOPT_TIMEOUT
-         * @param integer $timeout - in seconds
-         */
-        public function setTimeout($timeout=0){
-            curl_setopt($this->CH, CURLOPT_TIMEOUT, $timeout);
-        }
+     	/**
+          * Sets the CURLOPT_CONNECTTIMEOUT
+          * @param integer $connect_timeout - in seconds
+          */
+         public function setConnectTimeout($connect_timeout=0){
+             curl_setopt($this->CH, CURLOPT_CONNECTTIMEOUT, $connection_timeout);
+         }
+         
+         /**
+          * Sets the CURLOPT_TIMEOUT
+          * @param integer $timeout - in seconds
+          */
+         public function setTimeout($timeout=0){
+             curl_setopt($this->CH, CURLOPT_TIMEOUT, $timeout);
+         }
         
         private function getError($result){
             $curlError = array();
@@ -115,10 +119,56 @@
             return $curlError;
         }
         
-        private functon getHeaderResponse(){
+        private function getHeaderResponse(){
             $headerSize = curl_getinfo($this->CH, CURLINFO_HEADER_SIZE);
             $header = substr($response, 0, $header_size);
             $body = substr($response, $header_size);
+        }
+        
+        /**
+         * 
+         * Parse Header Response from HEAD Request
+         * @param Curl Response $result
+         * @return Array $headerOutput e.g. : <br/><pre>{
+		        "0": "HTTP/1.1 200 OK",
+		        "Date": "Sat, 20 Sep 2014 02:47:09 GMT",
+		        "Server": "Apache/2.2.22 (Ubuntu)",
+		        "X-Powered-By": "PHP/5.3.10-1ubuntu3.10",
+		        "Access-Control-Allow-Origin": "*",
+		        "Access-Control-Allow-Headers": "X_DW_Method_Override, X_DW_Session_Token",
+		        "Content-Row-Count": "289",
+		        "Content-Type": "application/json; charset=utf-8"
+		    }</pre>
+         */
+        private function parseHeaderRespsonse($result = NULL){
+        	if(is_null($result)){
+        		return false;
+        	}else{
+        		list($header, $body) = explode("\r\n\r\n", $result, 2);
+				$header = explode("\r\n",$header);
+				$headerOutput = array();
+				if(!empty($header)){
+					foreach($header as $key => $h){
+						if($key > 0){
+							list($headerKey,$headerValue) = explode(":",$h);
+							if($headerKey == 'Date'){
+								$dateData = explode(":",$h,2);
+								$dateString = '';
+								if(isset($dateData[1])){
+									$dateString = trim($dateData[1]," ");
+								}
+								$headerOutput[$headerKey] = $dateString;
+							}else{
+								$headerOutput[$headerKey] = trim($headerValue," ");
+							}
+						}else{
+							$headerOutput[$key] = $h;
+						}
+					}
+					return $headerOutput;
+				}
+        	}
+        	return false;
         }
         
         /**
@@ -131,7 +181,7 @@
             if($verbose) {
                 curl_setopt($this->CH, CURLOPT_VERBOSE, TRUE);
                 //Change the Directory to your log directory
-                curl_setopt($this->CH, CURLOPT_STDERR, fopen('/tmp/curl-lib.log','a+'));
+                curl_setopt($this->CH, CURLOPT_STDERR, @fopen('/tmp/curl-lib.log','a+'));
             }
             
             $this->setHeader();
@@ -143,6 +193,10 @@
             $curlResponse['request_header'] = curl_getinfo($this->CH, CURLINFO_HEADER_OUT);
             $curlResponse['status_code'] = curl_getinfo($this->CH, CURLINFO_HTTP_CODE);
             $curlResponse['error'] = $this->getError($result);
+            
+            if($this->METHOD == 'HEAD'){
+            	$result = $this->parseHeaderRespsonse($result);
+            }
             
             if(empty($curlResponse['error']))
                 $curlResponse['result'] = $result;
